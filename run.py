@@ -1,3 +1,32 @@
+def read_data(file, line_count):
+    data_file = open(file)
+    headers = data_file.readline().split()
+
+    x_idx = headers.index("X")
+    y_idx = headers.index("Y")
+    z_idx = headers.index("Z")
+    mag_flux_idx = headers.index("B_tot")
+
+    points = []
+    fluxes = []
+
+    total_lines_gotten = 0
+    #for _ in range(line_count):
+    while total_lines_gotten < line_count:
+        line = data_file.readline().split()
+        if "nan" in line:
+            continue
+        if len(line) == 0:
+            break
+
+        point = (line[x_idx], line[y_idx], line[z_idx])
+        points.append(point)
+        fluxes.append(line[mag_flux_idx])
+        total_lines_gotten += 1
+
+    data_file.close()
+
+    return points, fluxes
 
 def write_vtk_header(file):
     file.write("# vtk DataFile Version 3.0\n")
@@ -40,33 +69,10 @@ if __name__ == "__main__":
     output_filename = "output.vtk"
     lines_to_read = 1000000
 
-    data_file = open(input_filename)
-    headers = data_file.readline().split()
-
-    x_idx = headers.index("X")
-    y_idx = headers.index("Y")
-    z_idx = headers.index("Z")
-    mag_flux_idx = headers.index("B_tot")
-
-    points = []
-    fluxes = []
-
     print("Reading data...")
-
-    for _ in range(lines_to_read):
-        line = data_file.readline().split()
-        if "nan" in line:
-            continue
-        if len(line) == 0:
-            break
-
-        point = (line[x_idx], line[y_idx], line[z_idx])
-        points.append(point)
-        fluxes.append(line[mag_flux_idx])
-    data_file.close()
+    points, fluxes = read_data(input_filename, lines_to_read)
 
     print("Writing vtk output...")
-
     output = open(output_filename, "w+")
     write_vtk_header(output)
     write_vtk_points(output, points)
