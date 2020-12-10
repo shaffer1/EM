@@ -11,12 +11,12 @@ def read_data(file, line_count):
     fluxes = []
 
     total_lines_gotten = 0
-    #for _ in range(line_count):
     while total_lines_gotten < line_count:
         line = data_file.readline().split()
         if "nan" in line:
             continue
         if len(line) == 0:
+            print("No more lines to read. Got " + str(total_lines_gotten) + " lines.")
             break
 
         point = (line[x_idx], line[y_idx], line[z_idx])
@@ -47,22 +47,29 @@ def write_vtk_points(file, points):
 def write_vtk_cells(file, count):
     file.write("CELLS " + str(count) + " " + str(2*count) + "\n")
     for i in range(count):
-        output.write("1 " + str(i) + "\n")
+        file.write("1 " + str(i) + "\n")
 
 def write_vtk_cell_types(file, count):
     file.write("CELL_TYPES " + str(count) + "\n")
     for _ in range(count):
-        output.write("1\n")
+        file.write("1\n")
 
 def write_vtk_point_data(file, data):
     file.write("POINT_DATA " + str(len(data)) + "\n")
     file.write("SCALARS field_strength float 1\n")
     file.write("LOOKUP_TABLE default\n")
     for d in data:
-        file.write(d + " ")
+        file.write(str(d) + " ")
     file.write("\n")
 
-
+def write_points_to_file(filename, points, fluxes):
+    output = open(filename, "w+")
+    write_vtk_header(output)
+    write_vtk_points(output, points)
+    write_vtk_cells(output, len(points))
+    write_vtk_cell_types(output, len(points))
+    write_vtk_point_data(output, fluxes)
+    output.close()
 
 if __name__ == "__main__":
     input_filename = "ClusterDataOriginal.txt"
@@ -73,12 +80,13 @@ if __name__ == "__main__":
     points, fluxes = read_data(input_filename, lines_to_read)
 
     print("Writing vtk output...")
-    output = open(output_filename, "w+")
+    write_points_to_file(output_filename, points, fluxes)
+    '''output = open(output_filename, "w+")
     write_vtk_header(output)
     write_vtk_points(output, points)
     write_vtk_cells(output, len(points))
     write_vtk_cell_types(output, len(points))
     write_vtk_point_data(output, fluxes)
-    output.close()
+    output.close()'''
 
     print("Done.")

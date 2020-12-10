@@ -1,18 +1,37 @@
 import random
 import numpy as np
 from scipy.interpolate import LinearNDInterpolator, Rbf
-from run import read_data
+from run import read_data, write_points_to_file
 
 random.seed(0)
-interpolation_methods = [
-    "linear",
-    "cubic",
-    "thin_plate",
-    "multiquadric",
-    "inverse",
-    "gaussian",
-    "quintic"
-]
+
+def split_data(x, y, prob, sample_size):
+    """Splits the data into two groups: a training group and a testing group.
+    Elements from x and y will be put into the testing group with probability
+    prob. The returned value will be of the form: train_x, train_y, test_x,
+    test_y.
+
+    Args:
+        x (list): The x values of the data
+        y (list): The y values of the data
+        prob (double): The probability of a (x,y) pair to be added to the test set
+        sample_size (int): The total number of datapoints to sample
+    """
+    test_x = []
+    test_y = []
+    train_x = []
+    train_y = []
+
+    for i in range(sample_size):
+        r = random.random()
+        if r < prob:
+            test_x.append(x[i])
+            test_y.append(y[i])
+        else:
+            train_x.append(x[i])
+            train_y.append(y[i])
+
+    return train_x, train_y, test_x, test_y
 
 def print_interpolation_method_stats(interp, x, y):
     y_hat = interp(*x)
@@ -21,62 +40,53 @@ def print_interpolation_method_stats(interp, x, y):
 
     print("absolute error (2-norm): ", np.linalg.norm(error))
     print("relative error (2-norm): ", np.linalg.norm(error) / np.linalg.norm(y))
+    print("average error: ", np.linalg.norm(error, 1) / len(y))
     print("max error: ", max_error)
     print("-------------------------------------------------------------------")
 
+def print_list_stats(l):
+    print("Maximum: ", np.max(l))
+    print("Minimum: ", np.min(l))
+    print("Average: ", np.average(l))
+    print("Standard deviation: ", np.std(l))
+    print("Count: ", len(l))
+
 if __name__ == "__main__":
     input_filename = "ClusterDataOriginal.txt"
-    lines_to_read = 10000 # DO NOT EXCEED 10000 (on my dinky laptop...)
+    lines_to_read = 10000000
 
+    print("-------------------------------------------------------------------")
     print("reading data...")
     pts, flxs = read_data(input_filename, lines_to_read)
+    flxs = [ float(f) for f in flxs ]
+    print("Flux stats:")
+    print_list_stats(flxs)
 
-    print("parsing data...")
-    points = (
-        [ float(p[0]) for p in pts ],
-        [ float(p[1]) for p in pts ],
-        [ float(p[2]) for p in pts ]
-    )
-    fluxes = [ float(f) for f in flxs ]
+    print("-------------------------------------------------------------------")
+    print("shuffling data...")
+    temp = list(zip(pts, flxs))
+    #random.shuffle(temp)
+    pts, flxs = zip(*temp)
 
-    print("randomizing data...")
-    chance = 0.1
-    training_points = ([], [], [])
-    training_fluxes = []
-    test_points = ([], [], [])
-    test_fluxes = []
+    print("-------------------------------------------------------------------")
+    print("Splitting data...")
+    training_points, training_fluxes, test_points, test_fluxes = split_data(pts, flxs, 0.1, 10000) # DO NOT EXCEED 10000 (on my dinky laptop...)
 
-    total_training_data = 0
-    total_test_data = 0
-    for i in range(len(fluxes)):
-        r = random.random()
-        if r < chance:
-            total_test_data += 1
-            test_points[0].append(points[0][i])
-            test_points[1].append(points[1][i])
-            test_points[2].append(points[2][i])
-            test_fluxes.append(fluxes[i])
-        else:
-            total_training_data += 1
-            training_points[0].append(points[0][i])
-            training_points[1].append(points[1][i])
-            training_points[2].append(points[2][i])
-            training_fluxes.append(fluxes[i])
-    print("Total train data: ", total_training_data)
-    print("Total test data: ", total_test_data)
+    #write_points_to_file("training.vtk", training_points, training_fluxes)
+    #write_points_to_file("testing.vtk", test_points, test_fluxes)
 
-    print("creating interpolants...")
-    linear_interpolator = LinearNDInterpolator(training_points, training_fluxes)
-    rbfi_linear = Rbf(*training_points, training_fluxes, function="linear")
-    rbfi_cubic = Rbf(*training_points, training_fluxes, function="cubic")
-    rbfi_thin = Rbf(*training_points, training_fluxes, function="thin_plate")
+    print("Training flux stats:")
+    print_list_stats(training_fluxes)
+    print("Testing flux stats:")
+    print_list_stats(test_fluxes)
 
-    print("interpolating...")
-    print("Linear")
-    print_interpolation_method_stats(linear_interpolator, test_points, test_fluxes)
-    print("RBF Linear")
-    print_interpolation_method_stats(rbfi_linear, test_points, test_fluxes)
-    print("RBF Cubic")
-    print_interpolation_method_stats(rbfi_cubic, test_points, test_fluxes)
-    print("RBF Thin Plate")
-    print_interpolation_method_stats(rbfi_thin, test_points, test_fluxes)
+    training_points = np.transpose(training_points)
+    test_points = np.transpose(test_points)
+
+    print("-------------------------------------------------------------------")
+    print("Interpolating...")
+    methods = ["linear", "cubic", "thin_plate"]
+    for method in methods:
+        rbf_interpolator = Rbf(*training_points, training_fluxes, function=method)
+        print("Method: ", method)
+        print_interpolation_method_stats(rbf_interpolator, test_points, test_fluxes)

@@ -1,4 +1,5 @@
 vtk testing files
-output.vtk
+*.vtk
+*.png
 ClusterDataOriginal.txt
 __pycache__
